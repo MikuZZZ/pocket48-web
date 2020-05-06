@@ -47,7 +47,7 @@ export default {
     VideoPlayer,
   },
   data: () => ({
-    searchText: 'sss',
+    searchText: '',
     selectedMemberId: undefined,
     selectedLiveId: undefined,
     memberInfo: null,
