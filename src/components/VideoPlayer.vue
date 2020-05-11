@@ -22,13 +22,15 @@ export default {
   },
   watch: {
     videoInfo(val) {
-      const type = val.playStreamPath.startsWith('rtmp') ? 'rtmp/mp4' : 'application/x-mpegURL';
+      const streamingPath = val.playStreams[0].streamPath || val.playStreamPath;
+
+      const type = streamingPath.startsWith('rtmp') ? 'rtmp/mp4' : 'application/x-mpegURL';
       this.player.pause();
       this.player.src({
         type: 'video/mp4',
         src: 'https://file-examples.com/wp-content/uploads/2017/04/file_example_MP4_480_1_5MG.mp4',
       });
-      this.player.src({ type, src: val.playStreamPath });
+      this.player.src({ type, src: streamingPath });
       this.player.ready(() => {
         this.player.play();
       });

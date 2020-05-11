@@ -7,7 +7,12 @@
         :class="isActive ? 'arrow-down' : 'arrow-right'"
         @click="isActive = !isActive"
       />
-      <div v-if="item.id" title="加入我推列表" class="like-button__container clickable" @click="toggleLike(item)">
+      <div
+        v-if="fav && item.id"
+        title="加入我推列表"
+        class="like-button__container clickable"
+        @click="toggleLike(item)"
+      >
         <svg viewBox="0 0 26 26" :fill="fav.includes(item.id) ? 'white' : 'none'" xmlns="http://www.w3.org/2000/svg">
           <path d="M24 11L16 10L13 3L10 10L2 11L8 16L6 24L13 20L20 24L18 16L24 11Z" stroke="white" stroke-width="1.5" />
         </svg>

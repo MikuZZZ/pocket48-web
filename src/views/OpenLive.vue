@@ -3,34 +3,36 @@
     <aside>
       <div v-if="memberInfo === 'loading'">Loading</div>
       <div v-else>
-        <input type="text" v-model="searchText" placeholder="搜索（支持缩写）" />
         <nav>
-          <div class="current-live-button clickable" @click="selectedMemberId = 'live'">
+          <div class="current-live-button clickable" @click="selectedGroupId = 'live'">
             <svg width="8" height="8" viewBox="0 0 5 5" fill="red" xmlns="http://www.w3.org/2000/svg">
               <circle cx="2.5" cy="2.5" r="2.5" />
             </svg>
             <span>直播</span>
           </div>
-          <HierarchicalList :tree="filteredMemberInfo" v-model="selectedMemberId" :search="searchText" />
+          <HierarchicalList :tree="memberInfo" v-model="selectedGroupId" :search="searchText" />
         </nav>
       </div>
     </aside>
-    <div v-if="liveList" class="live-list__container">
+    <div ref="liveListContainer" class="live-list__container">
       <div v-if="liveList === 'loading'">Loading</div>
       <div
-        v-else
+        v-else-if="liveList"
         class="live-list__item"
         v-for="live in liveList"
         :key="live.liveId"
-        @click="selectedLiveId = live.liveId"
+        @click="live.status !== 1 ? (selectedLiveId = live.liveId) : undefined"
       >
+        <div v-if="live.status !== 4" :class="{ active: live.status !== 1 }" class="status-indicator">
+          {{ live.status === 1 ? '未开播' : '直播中' }}
+        </div>
         <img :src="'https://source1.48.cn/' + live.coverPath" alt="" />
         <div class="live-item__info">
-          <p>{{ live.userInfo.nickname }}</p>
-          <p>{{ live.liveType === 1 ? '直播' : '电台' }} - {{ live.title }}</p>
-          <p>{{ new Date(Number(live.ctime)).toLocaleString() }}</p>
+          <p>{{ live.title }}</p>
+          <p>{{ new Date(Number(live.stime)).toLocaleString() }}</p>
         </div>
       </div>
+      <div v-else>请从左边列表选择团</div>
     </div>
     <div v-if="videoInfo" class="live-video__container">
       <div v-if="videoInfo === 'loading'">Loading</div>
@@ -55,80 +57,55 @@ export default {
   },
   data: () => ({
     searchText: '',
-    selectedMemberId: undefined,
+    selectedGroupId: undefined,
     selectedLiveId: undefined,
     memberInfo: null,
     liveList: null,
     videoInfo: null,
+    liveNextId: '0',
   }),
   created() {
-    this.getMemberInfo();
+    this.getGroupInfo();
   },
-
+  mounted() {
+    this.$refs.liveListContainer.addEventListener('scroll', this.handleLiveListInfinityScroll);
+  },
+  beforeDestroy() {
+    this.$refs.liveListContainer.removeEventListener('scroll', this.handleLiveListInfinityScroll);
+  },
   watch: {
-    selectedMemberId(value) {
-      console.info(`Member selected ${value}`);
+    selectedGroupId(value) {
       if (value === 'live') {
         this.getLiveList();
       } else {
         this.getLiveRecordList();
       }
     },
-    selectedLiveId(value) {
-      console.info(`Live selected ${value}`);
+    selectedLiveId() {
       this.getVideoInfo();
     },
   },
-  computed: {
-    filteredMemberInfo() {
-      if (isEmpty(this.memberInfo)) {
-        return {};
-      }
-
-      if (!this.searchText) {
-        return this.memberInfo;
-      }
-
-      // const filtered = {
-      //   ...this.memberInfo,
-      //   children: this.memberInfo.children
-      //     .map((g) => ({
-      //       ...g,
-      //       children: g.children
-      //         .map((t) => ({
-      //           ...t,
-      //           children: t.children.filter((m) => m.label.includes(this.searchText)),
-      //         }))
-      //         .filter((t) => t.children.length),
-      //     }))
-      //     .filter((g) => g.children.length),
-      // };
-
-      const filtered = {
-        label: this.memberInfo.label,
-        children: this.memberInfo.children
-          .map((g) => {
-            if (Array.isArray(g.children)) {
-              return g.children
-                .map((t) => {
-                  if (Array.isArray(t.children)) {
-                    return t.children;
-                  }
-                  return [t];
-                })
-                .flat();
-            }
-            return [g];
-          })
-          .flat()
-          .filter((m) => m.label.toLowerCase().includes(this.searchText.toLowerCase())),
-      };
-
-      return filtered;
-    },
-  },
   methods: {
-    async getMemberInfo() {
+    async handleLiveListInfinityScroll() {
+      if (this.liveNextId === '0' || this.fetchingNext) {
+        return;
+      }
+
+      const scrollContainer = this.$refs.liveListContainer;
+      const atBottom = scrollContainer.clientHeight + scrollContainer.scrollTop + 300 > scrollContainer.scrollHeight;
+
+      if (atBottom) {
+        this.fetchingNext = true;
+        if (this.selectedGroupId === 'live') {
+          await this.getLiveList(this.liveNextId);
+        } else {
+          await this.getLiveRecordList(this.liveNextId);
+        }
+
+        this.fetchingNext = false;
+      }
+    },
+    async getGroupInfo() {
       this.memberInfo = 'loading';
       const sessionData = sessionStorage.getItem('menber_data');
 
@@ -139,81 +116,52 @@ export default {
         data = response.data;
         sessionStorage.setItem('menber_data', JSON.stringify(data));
       } else {
-        console.info('sessionData loadded');
         data = JSON.parse(sessionData);
       }
 
-      let group = groupBy(data.content.starInfo.concat(data.content.officialInfo), (info) => {
-        const groupInfo = data.content.groupInfo.find((g) => g.groupId === info.groupId);
-        return groupInfo ? groupInfo.groupName : 'ROOT';
-      });
-
-      Object.keys(group).forEach((groupName) => {
-        group[groupName] = groupBy(group[groupName], (info) => {
-          const teamInfo = data.content.teamInfo.find((t) => t.teamId === info.teamId);
-          return teamInfo ? teamInfo.teamName : 'ROOT';
-        });
-      });
-
-      group = {
+      const group = {
         label: 'SNH48G',
-        children: Object.entries(group).map(([groupName, groupInfo]) => {
-          if (groupName === 'ROOT') {
-            return {
-              label: groupInfo['ROOT'][0].realName,
-              id: groupInfo['ROOT'][0].userId,
-            };
-          }
+        children: data.content.groupInfo.map((g) => {
           return {
-            label: groupName,
-            children: Object.entries(groupInfo).map(([teamName, teamInfo]) => {
-              if (teamName === 'ROOT') {
-                return {
-                  label: teamInfo[0].realName,
-                  id: teamInfo[0].userId,
-                };
-              }
-              return {
-                label: teamName,
-                children: teamInfo.map((t) => ({
-                  label: `${t.realName}${t.abbr}`,
-                  id: t.userId,
-                })),
-              };
-            }),
+            label: g.groupName,
+            id: g.groupId,
           };
         }),
       };
 
       this.memberInfo = group;
     },
-    async getLiveRecordList() {
-      this.liveList = 'loading';
-      const { data: recordData } = await Axios.post('https://pocketapi.48.cn/live/api/v1/live/getLiveList', {
-        next: '0',
+    async getLiveRecordList(next) {
+      if (!next) {
+        this.liveList = 'loading';
+      }
+
+      const { data: recordData } = await Axios.post('https://pocketapi.48.cn/live/api/v1/live/getOpenLiveList', {
+        next: next || '0',
         record: 'true',
-        groupId: '0',
-        teamId: '0',
-        userId: this.selectedMemberId,
+        groupId: this.selectedGroupId,
       });
 
-      this.liveList = recordData.content.liveList;
+      this.liveNextId = recordData.content.next;
+      this.liveList = next ? this.liveList.concat(recordData.content.liveList) : recordData.content.liveList;
     },
-    async getLiveList() {
-      this.liveList = 'loading';
-      const { data: recordData } = await Axios.post('https://pocketapi.48.cn/live/api/v1/live/getLiveList', {
-        next: '0',
+    async getLiveList(next) {
+      if (!next) {
+        this.liveList = 'loading';
+      }
+
+      const { data: recordData } = await Axios.post('https://pocketapi.48.cn/live/api/v1/live/getOpenLiveList', {
+        next: next || '0',
         record: 'false',
         groupId: '0',
-        teamId: '0',
-        userId: '0',
       });
 
-      this.liveList = recordData.content.liveList;
+      this.liveNextId = recordData.content.next;
+      this.liveList = next ? this.liveList.concat(recordData.content.liveList) : recordData.content.liveList;
     },
     async getVideoInfo() {
       // this.videoInfo = 'loading';
-      const response = await Axios.post('https://pocketapi.48.cn/live/api/v1/live/getLiveOne', {
+      const response = await Axios.post('https://pocketapi.48.cn/live/api/v1/live/getOpenLiveOne', {
         liveId: this.selectedLiveId,
       });
 
@@ -263,7 +211,7 @@ export default {
 
   .live-list__container {
     width: 400px;
-    overflow-y: auto;
+    overflow-y: scroll;
     overflow-x: hidden;
 
     display: flex;
@@ -279,11 +227,27 @@ export default {
 
   .live-list__item {
     width: calc(50% - 10px);
-    padding-top: 20px;
+    margin-top: 20px;
+    position: relative;
 
     min-width: 150px;
     display: flex;
     flex-direction: column;
+
+    .status-indicator {
+      position: absolute;
+      font-size: 12px;
+      top: 5px;
+      left: 5px;
+      color: white;
+      background-color: rgb(231, 73, 73);
+      border-radius: 5px;
+      padding: 0 5px;
+
+      &.active {
+        background-color: rgb(89, 201, 89);
+      }
+    }
 
     img {
       width: 100%;

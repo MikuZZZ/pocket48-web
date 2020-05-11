@@ -9,6 +9,11 @@ const routes: Array<RouteConfig> = [
     name: 'MembersLive',
     component: () => import(/* webpackChunkName: "about" */ '../views/MemberLive.vue'),
   },
+  {
+    path: '/open-live',
+    name: 'OpenLive',
+    component: () => import(/* webpackChunkName: "about" */ '../views/OpenLive.vue'),
+  },
 ];
 
 const router = new VueRouter({
