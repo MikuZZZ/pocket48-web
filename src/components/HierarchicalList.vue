@@ -1,6 +1,13 @@
 <template>
   <ul>
-    <HierarchicalListItem :item="tree" defaultActive :currentSelected="selected" @change="onChange" />
+    <HierarchicalListItem
+      :item="tree"
+      :fav="fav"
+      defaultActive
+      :currentSelected="selected"
+      @change="onChange"
+      @like="onLike"
+    />
   </ul>
 </template>
 
@@ -17,6 +24,7 @@ export default {
     HierarchicalListItem,
   },
   props: {
+    fav: Array,
     currentSelected: [String, Number],
     tree: Object,
   },
@@ -31,6 +39,9 @@ export default {
     },
   },
   methods: {
+    onLike(e) {
+      this.$emit('like', e);
+    },
     onChange(e) {
       this.$emit('change', e);
     },

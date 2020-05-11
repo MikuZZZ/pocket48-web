@@ -11,14 +11,27 @@
             </svg>
             <span>直播</span>
           </div>
-          <HierarchicalList :tree="filteredMemberInfo" v-model="selectedMemberId" :search="searchText" />
+          <HierarchicalList
+            :tree="favouriteMemberInfo"
+            :fav="favouriteIds"
+            v-model="selectedMemberId"
+            :search="searchText"
+            @like="toggleLikeMember"
+          />
+          <HierarchicalList
+            :tree="filteredMemberInfo"
+            :fav="favouriteIds"
+            v-model="selectedMemberId"
+            :search="searchText"
+            @like="toggleLikeMember"
+          />
         </nav>
       </div>
     </aside>
-    <div v-if="liveList" class="live-list__container">
+    <div ref="liveListContainer" class="live-list__container">
       <div v-if="liveList === 'loading'">Loading</div>
       <div
-        v-else
+        v-else-if="liveList"
         class="live-list__item"
         v-for="live in liveList"
         :key="live.liveId"
@@ -31,6 +44,7 @@
           <p>{{ new Date(Number(live.ctime)).toLocaleString() }}</p>
         </div>
       </div>
+      <div v-else>请从左边列表选择成员</div>
     </div>
     <div v-if="videoInfo" class="live-video__container">
       <div v-if="videoInfo === 'loading'">Loading</div>
@@ -57,25 +71,38 @@ export default {
     searchText: '',
     selectedMemberId: undefined,
     selectedLiveId: undefined,
+    favouriteMemberInfo: {
+      label: '我推',
+      children: [],
+    },
     memberInfo: null,
     liveList: null,
     videoInfo: null,
+    liveNextId: '0',
+    fetchingNext: false,
   }),
   created() {
     this.getMemberInfo();
+    const favouriteMemberLocal = localStorage.getItem('favorite-members');
+    if (favouriteMemberLocal) {
+      this.favouriteMemberInfo = JSON.parse(favouriteMemberLocal);
+    }
   },
-
+  mounted() {
+    this.$refs.liveListContainer.addEventListener('scroll', this.handleLiveListInfinityScroll);
+  },
+  beforeDestroy() {
+    this.$refs.liveListContainer.removeEventListener('scroll', this.handleLiveListInfinityScroll);
+  },
   watch: {
     selectedMemberId(value) {
-      console.info(`Member selected ${value}`);
       if (value === 'live') {
         this.getLiveList();
       } else {
         this.getLiveRecordList();
       }
     },
-    selectedLiveId(value) {
-      console.info(`Live selected ${value}`);
+    selectedLiveId() {
       this.getVideoInfo();
     },
   },
@@ -88,21 +115,6 @@ export default {
       if (!this.searchText) {
         return this.memberInfo;
       }
-
-      // const filtered = {
-      //   ...this.memberInfo,
-      //   children: this.memberInfo.children
-      //     .map((g) => ({
-      //       ...g,
-      //       children: g.children
-      //         .map((t) => ({
-      //           ...t,
-      //           children: t.children.filter((m) => m.label.includes(this.searchText)),
-      //         }))
-      //         .filter((t) => t.children.length),
-      //     }))
-      //     .filter((g) => g.children.length),
-      // };
 
       const filtered = {
         label: this.memberInfo.label,
@@ -126,8 +138,40 @@ export default {
 
       return filtered;
     },
+    favouriteIds() {
+      return this.favouriteMemberInfo.children.map((c) => c.id);
+    },
   },
   methods: {
+    async toggleLikeMember(item) {
+      const currentIndex = this.favouriteMemberInfo.children.findIndex((c) => c.id === item.id);
+      if (currentIndex === -1) {
+        this.favouriteMemberInfo.children.push(item);
+      } else {
+        this.favouriteMemberInfo.children.splice(currentIndex, 1);
+      }
+
+      localStorage.setItem('favorite-members', JSON.stringify(this.favouriteMemberInfo));
+    },
+    async handleLiveListInfinityScroll() {
+      if (this.liveNextId === '0' || this.fetchingNext) {
+        return;
+      }
+
+      const scrollContainer = this.$refs.liveListContainer;
+      const atBottom = scrollContainer.clientHeight + scrollContainer.scrollTop + 300 > scrollContainer.scrollHeight;
+
+      if (atBottom) {
+        this.fetchingNext = true;
+        if (this.selectedLiveId === 'live') {
+          await this.getLiveList(this.liveNextId);
+        } else {
+          await this.getLiveRecordList(this.liveNextId);
+        }
+
+        this.fetchingNext = false;
+      }
+    },
     async getMemberInfo() {
       this.memberInfo = 'loading';
       const sessionData = sessionStorage.getItem('menber_data');
@@ -139,7 +183,6 @@ export default {
         data = response.data;
         sessionStorage.setItem('menber_data', JSON.stringify(data));
       } else {
-        console.info('sessionData loadded');
         data = JSON.parse(sessionData);
       }
 
@@ -187,29 +230,37 @@ export default {
 
       this.memberInfo = group;
     },
-    async getLiveRecordList() {
-      this.liveList = 'loading';
+    async getLiveRecordList(next) {
+      if (!next) {
+        this.liveList = 'loading';
+      }
+
       const { data: recordData } = await Axios.post('https://pocketapi.48.cn/live/api/v1/live/getLiveList', {
-        next: '0',
+        next: next || '0',
         record: 'true',
         groupId: '0',
         teamId: '0',
         userId: this.selectedMemberId,
       });
 
-      this.liveList = recordData.content.liveList;
+      this.liveNextId = recordData.content.next;
+      this.liveList = next ? this.liveList.concat(recordData.content.liveList) : recordData.content.liveList;
     },
-    async getLiveList() {
-      this.liveList = 'loading';
+    async getLiveList(next) {
+      if (!next) {
+        this.liveList = 'loading';
+      }
+
       const { data: recordData } = await Axios.post('https://pocketapi.48.cn/live/api/v1/live/getLiveList', {
-        next: '0',
+        next: next || '0',
         record: 'false',
         groupId: '0',
         teamId: '0',
         userId: '0',
       });
 
-      this.liveList = recordData.content.liveList;
+      this.liveNextId = recordData.content.next;
+      this.liveList = next ? this.liveList.concat(recordData.content.liveList) : recordData.content.liveList;
     },
     async getVideoInfo() {
       // this.videoInfo = 'loading';
