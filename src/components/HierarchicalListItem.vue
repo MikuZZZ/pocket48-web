@@ -64,10 +64,6 @@ export default {
 <style lang="scss" scoped>
 @import '../css/func.scss';
 
-.clickable {
-  cursor: pointer;
-}
-
 .selected {
   color: rgba(61, 10, 202, 0.5);
   font-weight: 800;
@@ -84,8 +80,9 @@ export default {
 header {
   display: flex;
   align-items: center;
+  padding-bottom: 10px;
+
   .label {
-    padding: 5px 0;
     margin-left: 5px;
   }
 }

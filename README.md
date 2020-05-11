@@ -1,6 +1,6 @@
 # pocket48-web
 
-Watch SNG48G members live broadcast in browser
+Watch SNG48G members live broadcast in browser.
 
 [https://mikuzzz.github.com/pocket48-web](https://mikuzzz.github.com/pocket48-web)
 
