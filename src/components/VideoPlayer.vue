@@ -33,7 +33,13 @@ export default {
   watch: {
     videoInfo(val) {
       this.currentLrc = [];
-      const streamingPath = val.playStreams ? val.playStreams[0].streamPath : val.playStreamPath;
+      this.lrcIndex = 0;
+
+      let streamingPath = val.playStreams ? val.playStreams[0].streamPath : val.playStreamPath;
+      if (streamingPath.startsWith('http://')) {
+        streamingPath = streamingPath.replace('http://', 'https://');
+      }
+
       this.loadLrc();
 
       const type = streamingPath.startsWith('rtmp') ? 'rtmp/mp4' : 'application/x-mpegURL';
@@ -119,12 +125,15 @@ export default {
 }
 
 .lrc__container {
+  display: flex;
+  flex-direction: column;
   position: absolute;
   bottom: 80px;
   overflow: hidden;
   left: 20px;
   z-index: 1;
-  width: 200px;
+  width: 33%;
+  align-items: flex-start;
 
   .line {
     display: inline-block;
