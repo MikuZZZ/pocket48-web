@@ -20,7 +20,7 @@
   "dependencies": {
     "@videojs/http-streaming": "^1.13.3",
     "@videojs/themes": "^1.0.0",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "core-js": "^3.6.4",
     "lodash": "^4.17.15",
     "video.js": "^7.7.5",
