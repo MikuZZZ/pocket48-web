@@ -48,7 +48,7 @@
     </div>
     <div v-if="videoInfo" class="live-video__container">
       <div v-if="videoInfo === 'loading'">Loading</div>
-      <VideoPlayer v-else :videoInfo="videoInfo" />
+      <!-- <VideoPlayer v-else :videoInfo="videoInfo" /> -->
     </div>
   </div>
 </template>
@@ -57,7 +57,7 @@
 import Axios from 'axios';
 import { isEmpty, groupBy } from 'lodash';
 
-import VideoPlayer from '../components/VideoPlayer';
+// import VideoPlayer from '../components/VideoPlayer';
 
 import HierarchicalList from '../components/HierarchicalList';
 
@@ -65,7 +65,7 @@ export default {
   name: 'App',
   components: {
     HierarchicalList,
-    VideoPlayer,
+    // VideoPlayer,
   },
   data: () => ({
     searchText: '',
