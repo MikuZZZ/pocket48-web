@@ -1,4 +1,4 @@
 module.exports = {
-  publicPath: "/pocket48-web",
+  publicPath: "/",
   outputDir: "docs"
 };

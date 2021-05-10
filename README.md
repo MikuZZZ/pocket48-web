@@ -6,7 +6,7 @@ A Pocket48 web client developed with Vue.js.
 
 Project link:
 
-[https://mikuzzz.github.com/pocket48-web](https://mikuzzz.github.com/pocket48-web)
+[https://yetai.ga](https://yetai.ga)
 
 ## Features
 
